@@ -26,7 +26,10 @@ $Version = $Version.Trim()
 
 # ── Path resolution ────────────────────────────────────────────────────────────
 $HomeDir = $env:USERPROFILE
-# Windows home slug: C:\Users\Aaron → -C--Users-Aaron (replace \ and : with -)
+# Windows home slug: C:\Users\Aaron → C--Users-Aaron (replace : and \ with -).
+# NOTE: this is a best-effort guess at Claude Code's Windows project-dir slug and
+# has NOT been verified on Windows. If memories don't appear, check the resolved
+# $ClaudeMemoryDir printed below against your actual ~/.claude/projects/* dir.
 $HomeSlug = $HomeDir -replace "[:\\]", "-"
 
 $ClaudeSkillsDir = "$HomeDir\.claude\skills"
@@ -34,10 +37,16 @@ $ClaudeMd        = "$HomeDir\.claude\CLAUDE.md"
 $ClaudeMemoryDir = "$HomeDir\.claude\projects\$HomeSlug\memory"
 
 $CursorCommandsDir = "$HomeDir\.cursor\commands"
+# Cursor has no global file-based rules dir; empty under global scope means "skip".
 $CursorRulesDir    = if ($Scope -eq "project") {
     Join-Path (Get-Location) ".cursor\rules"
 } else {
-    Join-Path (Get-Location) ".cursor\rules"
+    ""
+}
+if ($CursorRulesDir -eq "" -and $Harness -in "cursor","both" -and $Type -in "rules","all") {
+    Write-Host "WARN: Cursor has no global file-based rules directory."
+    Write-Host "      Cursor rules/memories are skipped under -Scope global."
+    Write-Host "      Re-run with -Scope project inside a repo, or use Cursor Settings > Rules."
 }
 
 $DistDir = "$RepoDir\dist"
@@ -101,8 +110,8 @@ function Get-Body {
     $found = 0
     $body = @()
     foreach ($line in $lines) {
+        if ($found -ge 2) { $body += $line; continue }
         if ($line -eq "---") { $found++; continue }
-        if ($found -ge 2) { $body += $line }
     }
     return $body -join "`n"
 }
@@ -172,7 +181,9 @@ function Install-RulesClaude {
         $content = Get-Content $ClaudeMd -Raw
         $pattern = "(?s)" + [regex]::Escape($BeginMarker) + ".*?" + [regex]::Escape($EndMarker)
         $replacement = "$BeginMarker`n$block`n$EndMarker"
-        $content = $content -replace $pattern, $replacement
+        # MatchEvaluator so `$` in rule bodies is inserted literally (not treated as $1/$&)
+        $evaluator = { param($m) $replacement }.GetNewClosure()
+        $content = [regex]::Replace($content, $pattern, $evaluator)
         Set-Content $ClaudeMd $content
         Write-Host "  + updated managed block in $ClaudeMd"
     } else {
@@ -194,6 +205,7 @@ function Uninstall-RulesClaude {
 }
 
 function Install-RulesCursor {
+    if ($CursorRulesDir -eq "") { Write-Host "-> Skipping Cursor rules (global scope; use -Scope project)."; return }
     Write-Host "-> Installing rules into Cursor ($CursorRulesDir)..."
     Invoke-Action "mkdir $CursorRulesDir" { New-Item -ItemType Directory -Force $CursorRulesDir | Out-Null }
     Get-ChildItem "$DistDir\cursor\rules" -Filter "*.mdc" | Where-Object { $_.Name -ne "known-facts.mdc" } | ForEach-Object {
@@ -204,6 +216,7 @@ function Install-RulesCursor {
 }
 
 function Uninstall-RulesCursor {
+    if ($CursorRulesDir -eq "") { Write-Host "-> Skipping Cursor rules (global scope; use -Scope project)."; return }
     Get-ChildItem "$DistDir\cursor\rules" -Filter "*.mdc" -ErrorAction SilentlyContinue |
         Where-Object { $_.Name -ne "known-facts.mdc" } | ForEach-Object {
         Remove-IfExists "$CursorRulesDir\$($_.Name)"
@@ -223,7 +236,15 @@ function Regenerate-MemoryIndex {
     Write-Host "  + regenerated $index"
 }
 
+function Repo-HasMemories {
+    return @(Get-ChildItem "$RepoDir\memories" -Filter "*.md" -ErrorAction SilentlyContinue).Count -gt 0
+}
+
 function Install-MemoriesClaude {
+    if (-not (Repo-HasMemories)) {
+        Write-Host "-> No memories in repo; leaving Claude Code memory dir untouched."
+        return
+    }
     Write-Host "-> Installing memories into Claude Code ($ClaudeMemoryDir)..."
     Invoke-Action "mkdir $ClaudeMemoryDir" { New-Item -ItemType Directory -Force $ClaudeMemoryDir | Out-Null }
     Get-ChildItem "$RepoDir\memories" -Filter "*.md" | ForEach-Object {
@@ -235,6 +256,10 @@ function Install-MemoriesClaude {
 }
 
 function Uninstall-MemoriesClaude {
+    if (-not (Repo-HasMemories)) {
+        Write-Host "-> No memories in repo; leaving Claude Code memory dir untouched."
+        return
+    }
     Get-ChildItem "$RepoDir\memories" -Filter "*.md" -ErrorAction SilentlyContinue | ForEach-Object {
         Remove-IfExists "$ClaudeMemoryDir\$($_.Name)"
     }
@@ -242,6 +267,7 @@ function Uninstall-MemoriesClaude {
 }
 
 function Install-MemoriesCursor {
+    if ($CursorRulesDir -eq "") { Write-Host "-> Skipping Cursor known-facts (global scope; use -Scope project)."; return }
     $src = "$DistDir\cursor\rules\known-facts.mdc"
     if (-not (Test-Path $src)) { Write-Host "  nothing to do (no memories)"; return }
     Invoke-Action "mkdir $CursorRulesDir" { New-Item -ItemType Directory -Force $CursorRulesDir | Out-Null }
@@ -250,6 +276,7 @@ function Install-MemoriesCursor {
 }
 
 function Uninstall-MemoriesCursor {
+    if ($CursorRulesDir -eq "") { Write-Host "-> Skipping Cursor known-facts (global scope; use -Scope project)."; return }
     Remove-IfExists "$CursorRulesDir\known-facts.mdc"
 }
 

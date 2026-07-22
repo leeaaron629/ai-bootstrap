@@ -69,12 +69,13 @@ CURSOR_COMMANDS_DIR="$HOME/.cursor/commands"
 if [[ "$SCOPE" == "project" ]]; then
   CURSOR_RULES_DIR="$(pwd)/.cursor/rules"
 else
-  # Cursor has no global file-based rules dir; warn and use project scope for rules.
-  CURSOR_RULES_DIR="$(pwd)/.cursor/rules"
+  # Cursor has no global file-based rules dir. Under global scope we do NOT write
+  # into the current directory — file-based Cursor rules only apply per-project.
+  CURSOR_RULES_DIR=""
   if [[ "$HARNESS" == "cursor" || "$HARNESS" == "both" ]] && [[ "$TYPE" == "rules" || "$TYPE" == "all" ]]; then
     echo "⚠️  Note: Cursor has no global file-based rules directory."
-    echo "   Rules will be installed into .cursor/rules/ in the current directory."
-    echo "   For truly global rules, add them via Cursor Settings > Rules manually."
+    echo "   Cursor rules/memories are skipped under --scope global."
+    echo "   Re-run with --scope project inside a repo, or add them via Cursor Settings > Rules."
   fi
 fi
 
@@ -153,7 +154,7 @@ install_skills_cursor() {
     skill_name="${name%.md}"
     [[ -n "$SKILL_FILTER" && "$skill_name" != "$SKILL_FILTER" ]] && continue
     dst="$CURSOR_COMMANDS_DIR/$name"
-    $LINK && run ln -sf "$cmd_file" "$dst" || run cp "$cmd_file" "$dst"
+    copy_or_link "$cmd_file" "$dst"
     echo "  ✓ $name → $dst"
   done
 }
@@ -172,8 +173,8 @@ build_managed_block() {
   local content=""
   for rule_file in "$REPO_DIR/rules"/*.md; do
     [[ -f "$rule_file" ]] || continue
-    # Strip frontmatter (between first and second ---)
-    body="$(awk '/^---/{found++; next} found==1{next} found>=2{print}' "$rule_file")"
+    # Strip frontmatter (between first and second ---); body --- lines are preserved
+    body="$(awk 'found>=2{print; next} /^---/{found++; next} found==1{next}' "$rule_file")"
     content+="$body"$'\n'
   done
   echo "$content"
@@ -197,8 +198,9 @@ install_rules_claude() {
     echo "  ✓ created $CLAUDE_CLAUDE_MD with managed block"
   elif grep -qF "$BEGIN_MARKER" "$CLAUDE_CLAUDE_MD"; then
     # Update existing managed block in-place using awk
-    awk -v begin="$BEGIN_MARKER" -v end="$END_MARKER" -v content="$block" '
-      $0 == begin { print; print content; in_block=1; next }
+    # block passed via env (ENVIRON) so awk does not process backslash escapes
+    AICONFIG_BLOCK="$block" awk -v begin="$BEGIN_MARKER" -v end="$END_MARKER" '
+      $0 == begin { print; print ENVIRON["AICONFIG_BLOCK"]; in_block=1; next }
       $0 == end   { in_block=0 }
       !in_block   { print }
     ' "$CLAUDE_CLAUDE_MD" > "${CLAUDE_CLAUDE_MD}.tmp" && mv "${CLAUDE_CLAUDE_MD}.tmp" "$CLAUDE_CLAUDE_MD"
@@ -233,6 +235,7 @@ uninstall_rules_claude() {
 }
 
 install_rules_cursor() {
+  [[ -z "$CURSOR_RULES_DIR" ]] && { echo "→ Skipping Cursor rules (global scope; use --scope project)."; return; }
   echo "→ Installing rules into Cursor ($CURSOR_RULES_DIR)..."
   run mkdir -p "$CURSOR_RULES_DIR"
   for mdc_file in "$DIST_DIR/cursor/rules"/*.mdc; do
@@ -240,12 +243,13 @@ install_rules_cursor() {
     name="$(basename "$mdc_file")"
     [[ "$name" == "known-facts.mdc" ]] && continue  # handled by memories
     dst="$CURSOR_RULES_DIR/$name"
-    $LINK && run ln -sf "$mdc_file" "$dst" || run cp "$mdc_file" "$dst"
+    copy_or_link "$mdc_file" "$dst"
     echo "  ✓ $name → $dst"
   done
 }
 
 uninstall_rules_cursor() {
+  [[ -z "$CURSOR_RULES_DIR" ]] && { echo "→ Skipping Cursor rules (global scope; use --scope project)."; return; }
   echo "→ Uninstalling rules from Cursor ($CURSOR_RULES_DIR)..."
   for mdc_file in "$DIST_DIR/cursor/rules"/*.mdc; do
     [[ -f "$mdc_file" ]] || continue
@@ -256,14 +260,26 @@ uninstall_rules_cursor() {
 }
 
 # ── Memories ───────────────────────────────────────────────────────────────────
+repo_has_memories() {
+  # Returns 0 only if the repo ships at least one memory .md
+  shopt -s nullglob
+  local files=("$REPO_DIR/memories"/*.md)
+  shopt -u nullglob
+  [[ ${#files[@]} -gt 0 ]]
+}
+
 install_memories_claude() {
+  if ! repo_has_memories; then
+    echo "→ No memories in repo; leaving Claude Code memory dir untouched."
+    return
+  fi
   echo "→ Installing memories into Claude Code ($CLAUDE_MEMORY_DIR)..."
   run mkdir -p "$CLAUDE_MEMORY_DIR"
   for mem_file in "$REPO_DIR/memories"/*.md; do
     [[ -f "$mem_file" ]] || continue
     name="$(basename "$mem_file")"
     dst="$CLAUDE_MEMORY_DIR/$name"
-    $LINK && run ln -sf "$mem_file" "$dst" || run cp "$mem_file" "$dst"
+    copy_or_link "$mem_file" "$dst"
     echo "  ✓ $name → $dst"
   done
   # Regenerate MEMORY.md index
@@ -290,6 +306,10 @@ regenerate_memory_index() {
 }
 
 uninstall_memories_claude() {
+  if ! repo_has_memories; then
+    echo "→ No memories in repo; leaving Claude Code memory dir untouched."
+    return
+  fi
   echo "→ Uninstalling memories from Claude Code..."
   for mem_file in "$REPO_DIR/memories"/*.md; do
     [[ -f "$mem_file" ]] || continue
@@ -300,16 +320,18 @@ uninstall_memories_claude() {
 }
 
 install_memories_cursor() {
+  [[ -z "$CURSOR_RULES_DIR" ]] && { echo "→ Skipping Cursor known-facts (global scope; use --scope project)."; return; }
   echo "→ Installing known-facts rule into Cursor ($CURSOR_RULES_DIR)..."
   local src="$DIST_DIR/cursor/rules/known-facts.mdc"
   [[ -f "$src" ]] || { echo "  nothing to do (no memories found)"; return; }
   run mkdir -p "$CURSOR_RULES_DIR"
   dst="$CURSOR_RULES_DIR/known-facts.mdc"
-  $LINK && run ln -sf "$src" "$dst" || run cp "$src" "$dst"
+  copy_or_link "$src" "$dst"
   echo "  ✓ known-facts.mdc → $dst"
 }
 
 uninstall_memories_cursor() {
+  [[ -z "$CURSOR_RULES_DIR" ]] && { echo "→ Skipping Cursor known-facts (global scope; use --scope project)."; return; }
   echo "→ Uninstalling known-facts rule from Cursor..."
   remove_if_exists "$CURSOR_RULES_DIR/known-facts.mdc"
 }

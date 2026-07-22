@@ -91,16 +91,12 @@ function Remove-IfExists {
 
 # ── Build ──────────────────────────────────────────────────────────────────────
 function Build-IfNeeded {
-    if ($Harness -in "cursor","both") {
-        if (-not (Get-Command python3 -ErrorAction SilentlyContinue) -and
-            -not (Get-Command python  -ErrorAction SilentlyContinue)) {
-            Write-Error "python3 is required to build Cursor artifacts. Install Python 3 and retry."
-            exit 1
-        }
-        $py = if (Get-Command python3 -ErrorAction SilentlyContinue) { "python3" } else { "python" }
-        Write-Host "-> Building Cursor artifacts..."
-        if (-not $DryRun) { & $py "$RepoDir\scripts\build.py" }
-    }
+    if ($Harness -notin "cursor","both") { return }
+    $py = if     (Get-Command python3 -ErrorAction SilentlyContinue) { "python3" }
+          elseif (Get-Command python  -ErrorAction SilentlyContinue) { "python" }
+          else   { Write-Error "Python 3 is required to build Cursor artifacts. Install Python 3 and retry."; exit 1 }
+    Write-Host "-> Building Cursor artifacts..."
+    if (-not $DryRun) { & $py "$RepoDir\scripts\build.py" }
 }
 
 # ── Frontmatter strip ──────────────────────────────────────────────────────────

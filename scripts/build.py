@@ -47,14 +47,9 @@ def build_cursor_commands():
         meta, body = parse_frontmatter(text)
         name = skill_dir.name
 
-        lines = []
-        if "argument-hint" in meta:
-            lines.append(f"> **Input:** {meta['argument-hint']}\n")
-            lines.append("")
-        lines.append(body)
-
+        prefix = f"> **Input:** {meta['argument-hint']}\n\n" if "argument-hint" in meta else ""
         out_path = CURSOR_COMMANDS_DIR / f"{name}.md"
-        out_path.write_text("\n".join(lines))
+        out_path.write_text(prefix + body)
         print(f"  command: {out_path.relative_to(REPO_ROOT)}")
 
 

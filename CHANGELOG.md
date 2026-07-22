@@ -2,6 +2,18 @@
 
 All notable changes to this project will follow [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) and [Conventional Commits](https://www.conventionalcommits.org/).
 
+## [Unreleased]
+
+### Fixed
+- Memory install no longer rewrites an existing `MEMORY.md` when the repo ships no memories (was clobbering hand-curated indexes)
+- Cursor rules/memories are skipped under `--scope global` instead of being written into the current working directory
+- Rule rendering preserves backslashes (via awk `ENVIRON` / PowerShell `MatchEvaluator`) and body `---` dividers
+- Windows memory-path slug flagged as unverified with a runtime hint to check the resolved path
+
+### Changed
+- `install.sh` routes all copy/symlink operations through the `copy_or_link` helper (removes a fragile `&& … || …` pattern)
+- `.gitignore` now ignores generated `.cursor/` output
+
 ## [0.1.0] - 2026-07-19
 
 ### Added

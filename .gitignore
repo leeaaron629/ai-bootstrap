@@ -1,4 +1,5 @@
 dist/
+.cursor/
 __pycache__/
 *.pyc
 .DS_Store

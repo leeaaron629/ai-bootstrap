@@ -43,13 +43,13 @@ def build_cursor_commands():
         skill_md = skill_dir / "SKILL.md"
         if not skill_md.exists():
             continue
-        text = skill_md.read_text()
+        text = skill_md.read_text(encoding="utf-8")
         meta, body = parse_frontmatter(text)
         name = skill_dir.name
 
         prefix = f"> **Input:** {meta['argument-hint']}\n\n" if "argument-hint" in meta else ""
         out_path = CURSOR_COMMANDS_DIR / f"{name}.md"
-        out_path.write_text(prefix + body)
+        out_path.write_text(prefix + body, encoding="utf-8")
         print(f"  command: {out_path.relative_to(REPO_ROOT)}")
 
 
@@ -57,7 +57,7 @@ def build_cursor_rules():
     """Rule files → Cursor .mdc rules (one per topic file)."""
     CURSOR_RULES_DIR.mkdir(parents=True, exist_ok=True)
     for rule_file in sorted(RULES_DIR.glob("*.md")):
-        text = rule_file.read_text()
+        text = rule_file.read_text(encoding="utf-8")
         meta, body = parse_frontmatter(text)
 
         always_apply = meta.get("cursor-always-apply", "true").lower() == "true"
@@ -66,7 +66,7 @@ def build_cursor_rules():
         cursor_fm = f"---\ndescription: {title}\nalwaysApply: {str(always_apply).lower()}\n---\n\n"
         out_name = re.sub(r"^\d+-", "", rule_file.stem) + ".mdc"
         out_path = CURSOR_RULES_DIR / out_name
-        out_path.write_text(cursor_fm + body)
+        out_path.write_text(cursor_fm + body, encoding="utf-8")
         print(f"  rule:    {out_path.relative_to(REPO_ROOT)}")
 
 
@@ -79,13 +79,13 @@ def build_cursor_known_facts():
     CURSOR_RULES_DIR.mkdir(parents=True, exist_ok=True)
     sections = []
     for mf in memory_files:
-        text = mf.read_text()
+        text = mf.read_text(encoding="utf-8")
         _, body = parse_frontmatter(text)
         sections.append(body.strip())
 
     cursor_fm = "---\ndescription: Known facts and context\nalwaysApply: true\n---\n\n"
     out_path = CURSOR_RULES_DIR / "known-facts.mdc"
-    out_path.write_text(cursor_fm + "\n\n---\n\n".join(sections) + "\n")
+    out_path.write_text(cursor_fm + "\n\n---\n\n".join(sections) + "\n", encoding="utf-8")
     print(f"  facts:   {out_path.relative_to(REPO_ROOT)}")
 
 

@@ -1,4 +1,4 @@
-# install.ps1 — install ai-config skills, rules, and memories into Claude Code and/or Cursor
+﻿# install.ps1 — install ai-config skills, rules, and memories into Claude Code and/or Cursor
 # Requires PowerShell 5.1+ (Windows) or PowerShell 7+ (cross-platform)
 param(
     [ValidateSet("claude","cursor","both")]

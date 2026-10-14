@@ -130,8 +130,7 @@ updated: 2026-10-14
 
 ## Mapping to trackers
 
-The document is the same everywhere; only where each field lands
-changes. Use this when the user says where the todo will live.
+Use this when the user says where the todo will live.
 
 | Field | JIRA | GitHub Issues |
 |---|---|---|
@@ -142,10 +141,8 @@ changes. Use this when the user says where the todo will live.
 | `assignee`, `labels` | Assignee, Labels | Assignee, Labels |
 | `## Log` entries | Comments | Comments |
 
-Store the tracker's key or URL (for example `id: PROJ-123`) as extra
-frontmatter so later state changes can find the item. This skill
-outputs the document. Creating or updating the item in a tracker is a
-separate step, done only when the user asks.
+Store the tracker's key (for example `id: PROJ-123`) as extra
+frontmatter. Only create or update tracker items when the user asks.
 
 ## Guardrails
 

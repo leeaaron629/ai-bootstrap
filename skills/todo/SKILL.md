@@ -82,14 +82,35 @@ AC to ...").
 
 1. Get the document. It's either pasted in the conversation or given
    as a file path. If neither, ask for it.
-2. Update `status` and `updated` in the frontmatter, then append
-   `- <date> <OLD> → <NEW>: <reason>` to `## Log`.
+2. Update `status` and `updated` in the frontmatter, set or clear
+   `resolved` (see [Timestamps](#timestamps)), then append
+   `- <timestamp> <OLD> → <NEW>: <reason>` to `## Log`.
 3. When moving to `DONE`, show the AC checklist. If any boxes are
    unchecked, ask in one line: "Tick all AC as met? (yes / which)".
    Don't block on it.
 4. If the document came from a file path, edit that file in place.
    If it was pasted, output the updated document.
 5. Report in one line: `<title> IN PROGRESS → DONE`.
+
+## Timestamps
+
+The document must answer "when was it created, last changed, started,
+completed?" without outside context.
+
+- **Read the time from the system clock**, never guess it:
+  `date -u +%Y-%m-%dT%H:%MZ`. Use UTC so entries sort and compare
+  across machines. If no clock is available, ask the user.
+- **Every change is recorded.** A state change, a field edit
+  (priority, assignee, labels, title) or a body edit (AC, Task, Notes),
+  including batch edits by number, updates `updated` and appends one
+  line to `## Log`:
+  - `- <timestamp> created [TODO]`
+  - `- <timestamp> <OLD> → <NEW>: <reason>`
+  - `- <timestamp> <field> <old> → <new>` (or `edited <section>` for body text)
+- **`resolved`** is set to the transition time when moving to `DONE`
+  or `CANCELLED`, and removed when moving to any other state.
+- Never rewrite or delete existing Log lines. They're the timeline: to
+  find when something started, look for the first `→ IN PROGRESS` line.
 
 ## Document format
 
@@ -101,8 +122,9 @@ type: Task
 priority: Medium
 assignee:
 labels: []
-created: 2026-10-14
-updated: 2026-10-14
+created: 2026-10-14T17:48Z
+updated: 2026-10-14T17:48Z
+resolved:
 ---
 
 **Motivation:**
@@ -119,12 +141,13 @@ updated: 2026-10-14
 - [ ] <observable outcome>
 
 ## Log
-- 2026-10-14 created [TODO]
+- 2026-10-14T17:48Z created [TODO]
 ```
 
 - Omit empty body sections and empty optional frontmatter fields.
-- `status` in the frontmatter is the single source of truth. `## Log`
-  is history only, so never derive state from it.
+- `status` in the frontmatter is the single source of truth for the
+  current state, so never derive state from `## Log`. The Log is the
+  source of truth for *when* each change happened.
 - Keep any extra frontmatter the user added (for example an `id`
   from their own tracker) unchanged.
 
@@ -140,9 +163,12 @@ Use this when the user says where the todo will live.
 | `type`, `priority` | Issue Type, Priority | Labels (e.g. `priority: medium`) |
 | `assignee`, `labels` | Assignee, Labels | Assignee, Labels |
 | `## Log` entries | Comments | Comments |
+| `created`, `updated`, `resolved` | Created, Updated, Resolved | `created_at`, `updated_at`, `closed_at` |
 
 Store the tracker's key (for example `id: PROJ-123`) as extra
-frontmatter. Only create or update tracker items when the user asks.
+frontmatter. Trackers set their own timestamps when an item is
+created there, so keep the document's Log as the record of what
+happened before. Only create or update tracker items when the user asks.
 
 ## Guardrails
 

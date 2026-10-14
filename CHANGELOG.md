@@ -8,6 +8,7 @@ All notable changes to this project will follow [Keep a Changelog](https://keepa
 - `skills/unattended` — execute a task or plan with no human in the loop, front-loading decisions into one upfront contract and self-verifying via repo gates
 - `skills/fan-out-code` — dispatch code-fix issues to parallel subagents, grouping tasks that touch the same files to avoid edit conflicts
 - `skills/worktree-task` — isolate an interactive session in its own git worktree/branch to run several terminals against one repo without collisions
+- `skills/doc-review` — verify docs, runbooks, READMEs, and code comments against current code and each other, reporting staleness with evidence before editing
 
 ### Fixed
 - Memory install no longer rewrites an existing `MEMORY.md` when the repo ships no memories (was clobbering hand-curated indexes)

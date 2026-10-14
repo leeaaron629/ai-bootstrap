@@ -34,6 +34,10 @@ Slash commands for Claude Code (`/<name>`) and Cursor (`/<name>`).
 | `eval-and-triage-issue` | Cost/benefit triage of issues — severity × cost matrix, recommends fix now / defer / won't fix |
 | `auto-pr-resolve-feedback` | Auto-fixes actionable PR comments, commits, pushes, resolves threads |
 | `review-and-learn` | Reviews PR feedback and extracts recurring patterns into new rules |
+| `unattended` | Executes a task or plan with no human in the loop, self-verifying via lint/test/build |
+| `fan-out-code` | Dispatches code-fix tasks to parallel subagents, grouping same-file tasks to avoid conflicts |
+| `worktree-task` | Isolates an interactive session in its own git worktree/branch for parallel terminals |
+| `doc-review` | Verifies docs, runbooks, and code comments against current code; reports staleness with evidence before changing anything |
 
 ### Rules (`rules/`)
 

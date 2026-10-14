@@ -150,9 +150,9 @@ separate step, done only when the user asks.
 ## Guardrails
 
 - **No PII/PHI in documents.** They're durable and shared. If the
-  input contains claimant names, claim numbers, SSNs, diagnoses or
-  similar, stop, don't repeat the values, and ask the user to redact
-  them.
+  input contains names, contact details, government or account IDs,
+  health information or similar, stop, don't repeat the values, and ask
+  the user to redact them.
 - **No secrets** in document bodies or Notes.
 - Only change state, assignee or priority when the user asks.
 
